@@ -1,0 +1,634 @@
+---
+title: "Code for the rightMINI paper Lerma-Usabiaga et al xxxx"
+author: "Garikoitz Lerma-Usabiaga (garikoitz@gmail.com)"
+date: "Created 2019-May-20"
+output:
+  html_notebook:
+    highlight: tango
+    mathjax: null
+    code_folding: hide
+    number_sections: yes
+    theme: spacelab
+    toc: yes
+    toc_float: yes
+
+---
+
+This R Notebook has been created as a reproducible code for the paper. It has been based on another file called ContrastAnalysis.Rnw that was used with the same dataset, but contains way more options and analysis. This paper reports just a reduced set of results, and this notebook reproduces them all. All the figures from the paper should be able to be reproduced from here (these plots are the basis of the final figures that have been edited and completed in Affinnity Designer). 
+
+For better visualization, by default the code is hided.  To see all, select (on the top right corner of the document) Code > Show All Code, or visualize it on demand clicking on the 'Code' button.
+
+# Initialize the analysis
+## Load packages
+
+```{r LoadPackages, highlight=FALSE, message=FALSE, warning=FALSE,results='hide'}
+# Load only libraries required for this analysis
+rm(list=ls());
+graphics.off()
+source('~/code/MINI/supportFunctions.R')
+library(data.table)
+library(Cairo)
+library(ggplot2)
+library(nlme)  # se usa solo para pruebas y para comprobar que da lo mismo pero con la p
+library(lme4)  # For the anovas
+library(pbkrtest)   # For testing the anovas
+library(AICcmodavg) # For testing the anovas
+library(multcomp)   # For testing the anovas
+library(ggrepel)
+library(RColorBrewer)
+library(effsize)
+library(rprojroot)
+library(plyr)
+``` 
+
+## Create version stamp
+Just in case, this file will be frozen in time with all the results inside git. This function will print the version of all the packages used. 
+```{r R and Packages stamp for reproducibility}
+  cat(paste0('         ************************************\n',
+             'Remember to have all the datafiles loaded by this script in git. \n',
+             '         ************************************\n\n'))
+  print(sessionInfo(package = NULL))
+```
+
+
+
+
+
+## Define folder names
+And set some options, move it below afterwards
+
+```{r Define folder names, highlight=FALSE, message=FALSE, warning=FALSE,results='markup'}
+
+basedir = '~/gDrive/BCBL/PROYECTOS/rightMINI/ANALYSIS'
+csvBaseDir = file.path(basedir, 'infoFromCluster')
+tempdir = '~/gDrive/BCBL/PROYECTOS/rightMINI/ANALYSIS/temp'
+fsaveragelabeldir = '/Applications/freesurfer/subjects/fsaverage/label'
+myfsaveragelabeldir = file.path(find_rstudio_root_file(), 'DATA', 'fslabeldir')
+Figures = '~/gDrive/BCBL/PROYECTOS/rightMINI/_PUBLISH_/Journal1/Figures'
+pngbaseMINIimgDir = file.path(Figures,'png')
+svgbaseMINIimgDir = file.path(Figures,'svg')
+
+# Write down why this subjects have to be removed from the analysis
+# S013: due to results in artifact repair, see MINIDB spreadsheet in googleDocs
+# S018: due to results in artifact repair, see MINIDB spreadsheet in googleDocs
+# S004: qMRI missing, the pipeline did not end, usually registration problems
+# S029: qMRI missing, the pipeline did not end, usually registration problems
+# S032: qMRI missing, the pipeline did not end, usually registration problems
+# S048: qMRI missing, the pipeline did not end, usually registration problems
+# S056: qMRI missing, the pipeline did not end, usually registration problems
+# S067: qMRI missing as well. DWI wrong as well. Too much movement....
+# S072: qMRI missing, the pipeline did not end, usually registration problems
+# S086: qMRI missing, the pipeline did not end, usually registration problems
+# S029: puntuacion demasiado baja en lexical decision, ya estaba eliminado
+# S067: lexical decision sin sentido, no era nativa
+# S097: el RETEST de lexical decision
+glmNames = c('block')
+sujElimArtRepair = list()
+sujElimArtRepair[['block']] = c ('S013', 'S018', 'S004', 'S029','S032','S048','S067','S072','S086','S097')
+
+# Calculate the fsaverage equivalent to the literature ROIs
+aVWFA152 = matrix(c(-45, -51, -12, 1),nrow=4, ncol=1)
+cVWFA152 = matrix(c(-45, -57, -12, 1),nrow=4, ncol=1)
+pVWFA152 = matrix(c(-45, -72, -10, 1),nrow=4, ncol=1)
+MNI305to152 =     matrix(
+                   c(0.9975,   -0.0073,    0.0176,   -0.0429,
+                     0.0146,    1.0009,   -0.0024,    1.5496,
+                    -0.0130,   -0.0093,    0.9971,    1.1840,
+                     0     ,    0     ,    0     ,    1     ),
+                   nrow=4, ncol=4, byrow=T)
+aVWFA305 = solve(MNI305to152) %*% aVWFA152
+cVWFA305 = solve(MNI305to152) %*% cVWFA152
+pVWFA305 = solve(MNI305to152) %*% pVWFA152
+aVWFA305 = aVWFA305[1:3]
+cVWFA305 = cVWFA305[1:3]
+pVWFA305 = pVWFA305[1:3]
+aVWFA152 = aVWFA152[1:3]
+cVWFA152 = cVWFA152[1:3]
+pVWFA152 = pVWFA152[1:3]
+
+cat('Done')
+
+```
+
+
+# Data analysis (TEST)
+## Read and organize the data
+
+Now read the data which is specified by the file folders above. In order to be able to share them I might need to move them to the same project subdirectory and upload the data to bitbucket/github.
+
+In the project data there are two fMRI designs, block and event-related. For the paper we just reported block, so there won't be references to the event data, even though the code will be prepared to implement the analysis of the event-related data as well. 
+
+
+```{r ReadTheData, echo=FALSE, tidy=TRUE,highlight=FALSE, message=FALSE, warning=FALSE,results='markup'}
+anArea = 'VOT'
+GMtract = paste0('lh',anArea,'16')
+readDataParams = list('glmNames' = glmNames, 'basedir' = basedir, 
+                      'vGuardarExcel' = 'V15', 'anArea' = anArea, 'bigSmall' = '16', 'useFsaverageMNI152' = T, 
+                      'Tmin' = 0,    'sujElimArtRepair' = sujElimArtRepair)
+dataList = myReadTvalues(readDataParams)
+longROI     = dataList[['longROI']]
+longROInovtx = longROI[, myGrepNames('vtx',longROI,T)]
+# Remove the in_tract info now
+longROIno_inTract = longROInovtx[, myGrepNames('_inParc|_inVof',longROInovtx,T)]
+noDTp = as.data.table(longROIno_inTract)
+
+# CHOOSE TEST O RETEST
+noDTp = noDTp[noDTp$TRT == 'TEST',]
+# And drop levels
+noDTp$TRT = droplevels(noDTp$TRT)
+noDTp$SUBJECT = droplevels(noDTp$SUBJECT)
+noDTp$GROUP = droplevels(noDTp$GROUP)
+
+
+# Remove the ROIs, they are only used afterwads for  RWvsNull. When using it with IFG it fails, as there are no values
+noDT_mask = noDTp[noDTp$ROI == GMtract,]  # See above for GMtract definition, it is lh+anArea+16
+noDT_mask$ROI = droplevels(noDT_mask$ROI)
+cat('Done reading and selecting the data. We have selected TEST only (ONCE and TWICE1 data)')
+```
+
+Now that we have our data in a nice table do the clustering analysis and create the plots. 
+
+## Clustering analysis (Figure 1 and Figure 4c)
+Figure 1 results are superposed over the DWI data in Figure 4c, we read the tracts and plot them
+
+```{r Clustering}
+clustParams = list('noDT'=noDT_mask, 'trt'='TEST')
+resulList = myClustering(clustParams)
+cat('All clusters (by x,y,z,T) separate the LEX and PER')
+
+# Extract the required files to use below
+noDT = resulList[['noDT']]
+dft  = resulList[['dft']]  # Before the automated clustering
+dfc  = resulList[['dfc']]  # After the automated clustering (results should be the same)
+
+# Save the contrast based and cluster based averages as csv to be used in Matlab
+# to create mOTS and pOTS, and to plot the GMax into the surface of fsaverage
+# write.csv(dft, file.path(find_rstudio_root_file(), 'DATA', 'fMRI', 'TEST_GMax.csv'))
+
+# Save images as pngs
+# ggsave(filename = file.path(svgbaseMINIimgDir, 'RETEST_contrastPlotXYcon.png'),
+#        plot = resulList[['contrastPlotXYcon']], width=10,height=13.75,
+#        units='cm',dpi=300, pointsize=8,bg='white')
+
+# Show the tables and plots that are going to be saved
+print(resulList[['dft']])
+print(resulList[['contrastPlotXY']])
+print(resulList[['clusterPlotXY']])
+
+# Calculate Effect Size to be included in the plot
+cohen.d(noDT$fsy, noDT$TYPE)
+cohen.d(noDT$T, noDT$TYPE)
+
+# Save svg for Figure 1
+ggsave(filename = file.path(svgbaseMINIimgDir, 'contrastPlotXY.svg'), plot = resulList[['contrastPlotXY']])
+ggsave(filename = file.path(svgbaseMINIimgDir, 'clusterPlotXY.svg'), plot = resulList[['clusterPlotXY']])
+
+```
+
+
+## ANOVAs over the fMRI data
+Perform the ANOVAs reported in the paper. It uses a generic function created for the exploratory phase, here with fixed options to provide the required results. 
+
+
+```{r Anova_TEST_data}
+# The input data.table is the same as for the averaging and clustering section
+# Perform and visualize the anovas for the selected variables. 
+dependentVariable = 'fsy'
+independentVariables = c('Contrast')
+cat(paste0('\n\n************************************************************************\n',
+           'ANOVA for depVar= ', dependentVariable, ' and indepVars= ', independentVariables),
+           '\n************************************************************************\n\n')
+anovaParams = list('dtmp'=noDT_mask, 'dependentVariable'=dependentVariable,
+                   'independentVariables'=independentVariables,
+                   'usarLME' = F, 'usarLMER' = T)  
+myAnova(anovaParams)  # There are no results back, just plot the results that will be reported in the paper. 
+
+
+
+dependentVariable = 'T'
+independentVariables = c('Contrast')
+cat(paste0('\n\n************************************************************************\n',
+           'ANOVA for depVar= ', dependentVariable, ' and indepVars= ', independentVariables),
+           '\n************************************************************************\n\n')
+anovaParams = list('dtmp'=noDT_mask, 'dependentVariable'=dependentVariable,
+                   'independentVariables'=independentVariables,
+                   'usarLME' = F, 'usarLMER' = T)  
+myAnova(anovaParams)  # There are no results back, just plot the results that will be reported in the paper. 
+
+
+```
+
+
+
+
+## Probabilistic fMRI and ROI analysis (Figure 2)
+
+
+
+```{r signal percent change plot}
+  resultsSPC = mySignalPercentChange("TEST", sujElimArtRepair[['block']])
+
+    print(resultsSPC)
+    
+    d = resultsSPC[['d']]
+    # Calculate Effect Size to be included in the plot
+    cohen.d(d$psc[d$CLUSTER=='LEXICAL'], d$REGION[d$CLUSTER=='LEXICAL'])
+    cohen.d(d$psc[d$CLUSTER=='PERCEPTUAL'], d$REGION[d$CLUSTER=='PERCEPTUAL'])
+
+    
+    ggsave(filename = file.path(svgbaseMINIimgDir, 'fMRI2_Probabilistico.svg'), 
+           plot = resultsSPC[['barplot']])
+```
+
+
+
+
+
+
+
+
+
+
+## Lexical Decision Analysis (data for Figure 3 comes from here)
+Here the lexical decision data analysis from the raw data to the generation of the processed files to be used in Matlab will be created. 
+The correlations from the figures were performed in Matlab. 
+
+```{r Lexical Decision}
+# The input data.table is the same as for the averaging and clustering section
+# Perform and visualize the anovas for the selected variables. 
+
+LDdt = myReadLexicalDecision()  # There are parameters, the function takes care on reading in the projRoot/DATA/LD directory
+forMatlabCorrelation = cbind(LDdt[LDdt$STIM=='PW',.(zRTSubStim,zACCSubStim, zCOMB)],
+                             LDdt[LDdt$STIM=='WL',.(zRTSubStim, zACCSubStim, zCOMB)],
+                             LDdt[LDdt$STIM=='WH',.(zRTSubStim, zACCSubStim, zCOMB)],
+                             LDdt[LDdt$STIM=='CS',.(zRTSubStim, zACCSubStim, zCOMB)])
+names(forMatlabCorrelation) = c("PWzRT", "PWzACC", "PWzCOMB",
+                                "WLzRT", "WLzACC", "WLzCOMB",
+                                "WHzRT", "WHzACC", "WHzCOMB",
+                                "CSzRT", "CSzACC", "CSzCOMB")
+forMatlabCorrelation$SUBJECT = unique(LDdt$SUBJECT)
+# Write the file to be used in Matlab
+write.table(forMatlabCorrelation, 
+            file = file.path(find_rstudio_root_file(), 'DATA','LD', 'LD.csv'),
+            quote = FALSE, row.names= FALSE, sep=',', col.names = TRUE)
+
+
+```
+
+
+## Behavioral and fMRI (Figure 3 - MATLAB)
+Lexical decision data from above was sent to Matlab.
+In Matlab vertex level correlations with fMRI are performed, and after clusterwise correction, 
+we receive back the average fMRI values inside the clusters. 
+Therefore, we have 4 clusters: CS with LEX and PER, RW with LEX and PER. 
+
+```{r Behavioral LD and fMRI}
+
+LDfMRIresults = myLDfMRIplots("TEST", sujElimArtRepair[['block']])
+# Visualize results
+print(LDfMRIresults[['summaryResult']])
+print(LDfMRIresults[['sctplot']])
+# Save the plots
+ggsave(filename = file.path(svgbaseMINIimgDir, 'LDfMRI_scatterplots.svg'), 
+       plot = LDfMRIresults[['sctplot']])
+
+
+```
+
+
+
+
+
+## DWI and functional (Figure 4a -mrtrix- and Figure 4b -freeview-)
+Visualize and save the svf-s for the plots. 
+These plots are huge, more than 8Mb. Inkscape breaks when dealing with them. 
+Maybe each file should be trated independently.
+
+```{r DWI plots}
+# Print the plots online to check them
+print(resulList[['contrastPlotXYcon']])
+print(resulList[['clusterPlotXYcon']])
+
+# Save svg for Figure 4c
+ggsave(filename = file.path(svgbaseMINIimgDir, 'contrastPlotXYcon.svg'), 
+       plot = resulList[['contrastPlotXYcon']])
+ggsave(filename = file.path(pngbaseMINIimgDir, 'contrastPlotXYcon.png'), 
+       plot = resulList[['contrastPlotXYcon']], dpi=300)
+
+ggsave(filename = file.path(svgbaseMINIimgDir, 'clusterPlotXYcon.svg'), 
+       plot = resulList[['clusterPlotXYcon']])
+
+```
+
+
+Nos do the stats that appear at the end of the section 
+```{r DWI stats}
+
+# McNemar Analysis
+  # Results in SPS
+  # TEST
+  trt = 'TEST'
+  datos = read.csv(file.path(find_rstudio_root_file(),
+                            'DATA','DWI',
+                            paste0(trt,'_DWIintoROIs_litVWFA_and_mOTS-pOTS.csv')),
+                    header = T, sep = ',',dec = '.', fill = TRUE,
+                    numerals = 'allow.loss', na.strings = 'NaN')
+  # Remove the subjects that we know are bad
+  datos = datos[datos$SUBJECT %!in% sujElimArtRepair[['block']], ]
+  # vOF
+  vOF_mOTS = datos$vOF_mOTS
+  vOF_pOTS = datos$vOF_pOTS
+  print(table(vOF_mOTS,vOF_pOTS))
+  print(100*prop.table(table(vOF_mOTS,vOF_pOTS)))
+  print(mcnemar.test(table(  vOF_mOTS,vOF_pOTS)))
+  # pAF
+  pAF_mOTS = datos$pAF_mOTS
+  pAF_pOTS = datos$pAF_pOTS
+  print(table(pAF_mOTS, pAF_pOTS))
+  print(100*prop.table(table(pAF_mOTS, pAF_pOTS)))
+  print(mcnemar.test(table(  pAF_mOTS, pAF_pOTS)))
+  
+  
+# TODO: REPLICAR t-test DWI con funcional
+  
+```
+
+
+
+## qMRI data and overlays (Figure 5)
+Here we will combine data coming from Matlab to create the svg plots
+
+```{r qMRI differences}
+qMRIresults = myqMRIplots("TEST", sujElimArtRepair[['block']])
+print(qMRIresults)
+
+# Save svg for Figure 1
+ggsave(filename = file.path(svgbaseMINIimgDir, 'qMRI_violin.svg'), plot = qMRIresults[['violin']],
+       width = 2.5, height = 3, pointsize = 10)
+ggsave(filename = file.path(svgbaseMINIimgDir, 'qMRI_sctplot.svg'), plot = qMRIresults[['sctplot']],
+       width = 2, height = 2, pointsize = 10)
+
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+## Averaged Tvalues on vOTC (Figure 6)
+
+```{r All spmT averaged in y}
+spmvotcResults = myAllspmTinVOTC("RETEST", 'RWvsNull'=FALSE, 'indepContrasts'=FALSE, 'meanContrasts'=TRUE)
+
+
+print(spmvotcResults)
+
+ggsave(filename = file.path(svgbaseMINIimgDir, 'Avg_Y_spmT_vOTC_DISCUSION.svg'), 
+       plot = spmvotcResults[['TmeanPlot']])
+
+```
+
+
+
+
+# Supplementary materials
+## RWvsNull (Figure 9)
+
+
+
+
+
+we have to read to different datasets with the information of the GMax values inside each of the ROIs. 
+
+First analyze the aacacppp data.
+```{r Anova_RWvsNull_TEST_data::aacacppp}
+# The input data.table is the same as for the averaging and clustering section
+# Perform and visualize the anovas for the selected variables. 
+
+
+# FIRST READ AND ANALYZE THE aacacppp data
+readDataParams = list('glmNames' = glmNames, 'basedir' = basedir, 
+                      'vGuardarExcel' = 'V11', 'anArea' = 'yMin-40', 'bigSmall' = '16', 'useFsaverageMNI152' = F, 
+                      'Tmin' = 0,    'sujElimArtRepair' = sujElimArtRepair)
+dataList = myReadTvalues(readDataParams)
+longROINull = dataList[['longROINull']]  # We are only interested in the Null data now. 
+Null_T      = longROINull[longROINull$TRT == 'TEST',]
+Null_T      = Null_T[Null_T$ROI %in% c('aa16', 'ca16', 'cp16', 'pp16'),]
+Null_T$ROI  = as.factor(Null_T$ROI)
+# And drop levels
+Null_T$TRT     = droplevels(Null_T$TRT)
+Null_T$SUBJECT = droplevels(Null_T$SUBJECT)
+Null_T$GROUP   = droplevels(Null_T$GROUP)
+cat('Done reading and selecting the data. We have selected TEST only (ONCE and TWICE1 data)')
+
+# Now send it to the anova analysis
+dependentVariable = 'T'
+independentVariables = c('ROI')
+cat(paste0('\n\n************************************************************************\n',
+           'aacacppp::ANOVA for depVar= ', dependentVariable, ' and indepVars= ', independentVariables),
+           '\n************************************************************************\n\n')
+anovaParams = list('dtmp'=Null_T, 'dependentVariable'=dependentVariable,
+                   'independentVariables'=independentVariables,
+                   'usarLME' = F, 'usarLMER' = T)  
+myAnova(anovaParams)  # There are no results back, just plot the results that will be reported in the paper. 
+
+```
+
+Second analyze the litVWFA data.
+```{r Anova_RWvsNull_TEST_data::litVWFA}
+# SECOND READ AND ANALYZE THE litVWFA data
+readDataParams = list('glmNames' = glmNames, 'basedir' = basedir,  'useFsaverageMNI152' = F, 
+                      'vGuardarExcel' = 'V09', 'anArea' = 'yMin-40', 'bigSmall' = '8',
+                      'Tmin' = 0,    'sujElimArtRepair' = sujElimArtRepair)
+dataList = myReadTvalues(readDataParams)
+longROINull = dataList[['longROINull']]  # We are only interested in the Null data now. 
+Null_T      = longROINull[longROINull$TRT == 'TEST',]
+# Null_T      = Null_T[Null_T$ROI %in% c('aa16', 'ca16', 'cp16', 'pp16'),]
+Null_T$ROI  = as.factor(Null_T$ROI)
+# And drop levels
+Null_T$TRT     = droplevels(Null_T$TRT)
+Null_T$SUBJECT = droplevels(Null_T$SUBJECT)
+Null_T$GROUP   = droplevels(Null_T$GROUP)
+cat('Done reading and selecting the data. We have selected TEST only (ONCE and TWICE1 data)')
+
+# Now send it to the anova analysis
+dependentVariable = 'T'
+independentVariables = c('ROI')
+cat(paste0('\n\n************************************************************************\n',
+           'litVWFA::ANOVA for depVar= ', dependentVariable, ' and indepVars= ', independentVariables),
+           '\n************************************************************************\n\n')
+anovaParams = list('dtmp'=Null_T, 'dependentVariable'=dependentVariable,
+                   'independentVariables'=independentVariables,
+                   'usarLME' = F, 'usarLMER' = T)  
+myAnova(anovaParams)  # There are no results back, just plot the results that will be reported in the paper. 
+
+
+```
+
+
+## TEST-RETEST
+### RWvsNull
+As in the previous case, first we will do the aa-ac-cp-pp
+
+```{r Anova_RWvsNull_RETEST_data::aacacppp}
+# The input data.table is the same as for the averaging and clustering section
+# Perform and visualize the anovas for the selected variables. 
+
+
+# FIRST READ AND ANALYZE THE aacacppp data
+readDataParams = list('glmNames' = glmNames, 'basedir' = basedir, 'useFsaverageMNI152' = F, 
+                      'vGuardarExcel' = 'V11', 'anArea' = 'yMin-40', 'bigSmall' = '16', 
+                      'Tmin' = 0,    'sujElimArtRepair' = sujElimArtRepair)
+dataList = myReadTvalues(readDataParams)
+longROINull = dataList[['longROINull']]  # We are only interested in the Null data now. 
+Null_T      = longROINull[longROINull$GROUP != 'ONCE',]
+Null_T      = Null_T[Null_T$ROI %in% c('aa16', 'ca16', 'cp16', 'pp16'),]
+Null_T$ROI  = as.factor(Null_T$ROI)
+# And drop levels
+Null_T$TRT     = droplevels(Null_T$TRT)
+Null_T$SUBJECT = droplevels(Null_T$SUBJECT)
+Null_T$GROUP   = droplevels(Null_T$GROUP)
+cat('Done reading and selecting the data. We have selected TEST only (ONCE and TWICE1 data)')
+
+# Now send it to the anova analysis
+dependentVariable = 'T'
+independentVariables = c('TRT', 'ROI')
+cat(paste0('\n\n************************************************************************\n',
+           'aacacppp::ANOVA for depVar= ', dependentVariable, ' and indepVars= ', independentVariables),
+           '\n************************************************************************\n\n')
+anovaParams = list('dtmp'=Null_T, 'dependentVariable'=dependentVariable, 
+                   'independentVariables'=independentVariables,
+                   'usarLME' = T, 'usarLMER' = F)  
+myAnova(anovaParams)  # There are no results back, just plot the results that will be reported in the paper. 
+
+```
+
+
+Now do the same for the litVWFA
+```{r Anova_RWvsNull_RETEST_data::litVWFA}
+# The input data.table is the same as for the averaging and clustering section
+# Perform and visualize the anovas for the selected variables. 
+
+
+# FIRST READ AND ANALYZE THE aacacppp data
+readDataParams = list('glmNames' = glmNames, 'basedir' = basedir,  'useFsaverageMNI152' = F, 
+                      'vGuardarExcel' = 'V09', 'anArea' = 'yMin-40', 'bigSmall' = '8',
+                      'Tmin' = 0,    'sujElimArtRepair' = sujElimArtRepair)
+dataList = myReadTvalues(readDataParams)
+longROINull = dataList[['longROINull']]  # We are only interested in the Null data now. 
+Null_T      = longROINull[longROINull$GROUP != 'ONCE',]
+Null_T$ROI  = as.factor(Null_T$ROI)
+# And drop levels
+Null_T$TRT     = droplevels(Null_T$TRT)
+Null_T$SUBJECT = droplevels(Null_T$SUBJECT)
+Null_T$GROUP   = droplevels(Null_T$GROUP)
+cat('Done reading and selecting the data. We have selected TEST only (ONCE and TWICE1 data)')
+
+# Now send it to the anova analysis
+dependentVariable = 'T'
+independentVariables = c('TRT', 'ROI')
+cat(paste0('\n\n************************************************************************\n',
+           'litVWFA::ANOVA for depVar= ', dependentVariable, ' and indepVars= ', independentVariables),
+           '\n************************************************************************\n\n')
+anovaParams = list('dtmp'=Null_T, 'dependentVariable'=dependentVariable, 
+                   'independentVariables'=independentVariables,
+                   'usarLME' = T, 'usarLMER' = F)  
+myAnova(anovaParams)  # There are no results back, just plot the results that will be reported in the paper. 
+
+```
+
+
+
+
+### Seggregation (Figure 10)
+
+```{r ReadTheData2}
+
+
+readDataParams = list('glmNames' = glmNames, 'basedir' = basedir, 'useFsaverageMNI152' = T,
+                      'vGuardarExcel' = 'V15', 'anArea' = 'VOT', 'bigSmall' = '16', 
+                      'Tmin' = 0,    'sujElimArtRepair' = sujElimArtRepair)
+dataList = myReadTvalues(readDataParams)
+longROI     = dataList[['longROI']]
+longROInovtx = longROI[, myGrepNames('vtx',longROI,T)]
+# Remove the in_tract info now
+longROIno_inTract = longROInovtx[, myGrepNames('_inParc|_inVof',longROInovtx,T)]
+noDTp = as.data.table(longROIno_inTract)
+noDTp = noDTp[noDTp$GROUP != 'ONCE',]  # CHOOSE TEST O RETEST
+# And drop levels
+noDTp$TRT = droplevels(noDTp$TRT)
+noDTp$SUBJECT = droplevels(noDTp$SUBJECT)
+noDTp$GROUP = droplevels(noDTp$GROUP)
+
+
+# Remove the ROIs, they are only used afterwads for  RWvsNull. When using it with IFG it fails, as there are no values
+noDT_mask = noDTp[noDTp$ROI == GMtract,]  # See above for GMtract definition, it is lh+anArea+16
+noDT_mask$ROI = droplevels(noDT_mask$ROI)
+cat('Done reading and selecting the data. We have selected TEST only (ONCE and TWICE1 data)')
+
+
+# Now send it to the anova analysis
+dependentVariable = 'fsy'
+independentVariables = c('Contrast', 'TRT')
+cat(paste0('\n\n************************************************************************\n',
+           'ANOVA for depVar= ', dependentVariable, ' and indepVars= ', independentVariables),
+           '\n************************************************************************\n\n')
+anovaParams = list('dtmp'=noDT_mask, 'dependentVariable'=dependentVariable, 
+                   'independentVariables'=independentVariables,
+                   'usarLME' = T, 'usarLMER' = F)  
+myAnova(anovaParams)  # There are no results back, just plot the results that will be reported in the paper. 
+
+
+dependentVariable = 'T'
+independentVariables = c('Contrast', 'TRT')
+cat(paste0('\n\n************************************************************************\n',
+           'ANOVA for depVar= ', dependentVariable, ' and indepVars= ', independentVariables),
+           '\n************************************************************************\n\n')
+anovaParams = list('dtmp'=noDT_mask, 'dependentVariable'=dependentVariable, 
+                   'independentVariables'=independentVariables,
+                   'usarLME' = T, 'usarLMER' = F)  
+myAnova(anovaParams)  # There are no results back, just plot the results that will be reported in the paper. 
+
+# Obtain the effect sizes to be added to the plot Figure 10
+d1 = noDT_mask
+cohen.d(d1$fsy[d1$TRT=='TEST'],d1$TYPE[d1$TRT=='TEST'])
+cohen.d(d1$T[d1$TRT=='TEST'],d1$TYPE[d1$TRT=='TEST'])
+cohen.d(d1$fsy[d1$TRT=='RETEST'],d1$TYPE[d1$TRT=='RETEST'])
+cohen.d(d1$T[d1$TRT=='RETEST'],d1$TYPE[d1$TRT=='RETEST'])
+```
+
+```{r Recreate the cluster plot}
+
+clustParams = list('noDT'=noDT_mask, 'trt'='RETEST')
+resultListTRT = myClustering(clustParams)
+
+# Show the tables and plots that are going to be saved
+print(resultListTRT[['clusterPlotXY']])
+
+
+# Now write the ROIs to be used in MATLAB analysis
+dftTRT = resultListTRT[['dft']]
+write.csv(dftTRT, file.path(find_rstudio_root_file(), 'DATA', 'fMRI', 'RETEST_GMax.csv'))
+
+# Save svg for Figure 10
+ggsave(filename = file.path(svgbaseMINIimgDir, 'clusterPlotXY_RETEST.svg'), 
+       plot = resultListTRT[['clusterPlotXY']])
+
+
+
+
+```
+
+
+
+
+

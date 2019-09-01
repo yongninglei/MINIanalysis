@@ -45,7 +45,11 @@ SEGU = pd.read_csv('https://docs.google.com/spreadsheets/d/1LQnX8nsXr-lZQqOziO8q
 # SEGU = pd.read_excel(join(ANALYSISdir, 'SEGU.xlsx'))
 GLMs = ['event', 'block']
 
-
+segu = SEGU.loc[SEGU['DO']==1, ['OsirixID', 'MINID', 'OsirixOLD']]
+doSubs = segu['MINID'].tolist()
+print 'We are going to work with the following subjects: '
+print(segu[['MINID', 'OsirixID', 'OsirixOLD']])
+print 'END OF CELL'
 print 'END OF CELL'
 # %%
 # SEGU.to_csv(join(ANALYSISdir,'tempSEGU3.csv'), sep='\t', encoding='utf-8')
@@ -438,7 +442,7 @@ print '\nEND OF CELL'
 # And then launch manually createVectors('S091', 'block') and the batchAnalyze below
 #
 # qsub -q all.q $mySH/RunMatlab.sh "matlab -nosplash -nodesktop -nodisplay  -r ""batchAnalyze({'S091'},'block','dec','/bcbl/home/public/Gari/MINI/ANALYSIS/fMRI_SPM/block');exit"""
-#
+# qsub -q all.q $mySH/RunMatlab.sh "matlab -nosplash -nodesktop -nodisplay  -r ""batchAnalyze({'S091'},'block_acpc_rhITfusLatOcc','dec','/bcbl/home/public/Gari/MINI/ANALYSIS/fMRI_SPM/block');exit"""
 # block S091: hecho
 #
 #
@@ -547,15 +551,15 @@ print 'END OF CELL'
 # - para la annot hay que binarizar y meter en un LUT, segun esto:
 
 # %%
-DO   = True
+DO   = False
 SHOW = True
 
 print 'LANZAR batchAnalyze'
-GLMs = ['event', 'triad', 'block']
+GLMs = ['block']  # ['event', 'triad', 'block']
 print 'Obligamos a tener que elegir un GLM cada vez para controlar mejor el output.'
 #######################
 GLM   = 'block'
-modelFilename = 'block_acpc_lhPPC'
+modelFilename = 'block_acpc_rhITfusLatOcc'
 steps = 'dec'
 #######################
 basedir = join(fMRI_SPMdir, GLM)
@@ -734,7 +738,7 @@ SHOW = True
 # Podria crear la inversa del mgh, pero entonces no tendria su equivalente en spmT y en el futuro no
 # sabemos para que lo vamos a necesitar. Ahora mismo tal como tengo el codigo no estoy usando el spmT.
 print 'Crear contrastes inversos  multiplicando spmT de interes por -1'
-GLMs = ['block', 'event']
+GLMs = ['block']#, 'event']
 forBlock = dict()
 forEvent = dict()
 createContrast = dict()
@@ -791,15 +795,15 @@ for GLM in GLMs:
 
 print 'END OF CELL'
 # %%
-DO   = True
+DO   = False
 SHOW = True
 
 print 'Crear los MGH desde los spmT'
-GLMs = ['event', 'triad', 'block']
+GLMs = ['block'] # ['event', 'triad', 'block']
 print 'Obligamos a tener que elegir un GLM cada vez para controlar mejor el output.'
 #######################
-GLM   = 'event'
-modelFilename = 'event_acpc_lhPPC'
+GLM   = 'block'
+modelFilename = 'block_acpc_rhITfusLatOcc'# 'event_acpc_lhPPC'
 #######################
 basedir = join(fMRI_SPMdir, GLM)
 print doSubs
@@ -830,15 +834,15 @@ for sub in doSubs:
 
 print 'END OF CELL'
 # %%
-DO   = True
+DO   = False
 SHOW = True
 
 print 'Hacer surf2surf para pasar valores a fsaverage 305, hay que hacerlo en otro paso cuando haya terminado el primero'
 GLMs = ['event', 'triad', 'block']
 print 'Obligamos a tener que elegir un GLM cada vez para controlar mejor el output.'
 #######################
-GLM   = 'event'
-modelFilename = 'event_acpc_lhPPC'
+GLM   = 'block'
+modelFilename = 'block_acpc_rhITfusLatOcc'
 #######################
 basedir = join(fMRI_SPMdir, GLM)
 print doSubs
@@ -868,7 +872,7 @@ for sub in doSubs:
                   '--no-cortex'
                  )
 
-        qsubcmd = str('qsub -v DIR=' + SUBJECTS_DIRacpc + ' $mySH/RunPython.sh "' + cmd + '"')
+        qsubcmd = str('qsub -q fsl.q -v DIR=' + SUBJECTS_DIRacpc + ' $mySH/RunPython.sh "' + cmd + '"')
         if SHOW: print qsubcmd+'\n'   # Test it before launching
         if DO: spqsubcmd = sp.call(qsubcmd, shell=True)
 
@@ -1221,5 +1225,8 @@ for conName in Translate[GLM].values():
         cmd = str("freeview -cmd " + join(OverlayDir, 'cmd_'+GLM+'_'+conName+'_'+prefijo+versionNum+'.txt'))
         if SHOW: print cmd+'\n'   # Test it before launching
         if DO: spcmd = sp.call(cmd, shell=True)
-
 print 'END OF CELL'
+
+
+
+# tar only the fsaverage files we want to download locally

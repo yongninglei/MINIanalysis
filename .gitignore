@@ -36,5 +36,5 @@ vignettes/*.pdf
 rsconnect/
 
 # Matlab temp
-.m~
+*.m~
 

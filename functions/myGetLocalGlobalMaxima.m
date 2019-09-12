@@ -39,12 +39,12 @@ TalXFM305 = xfm_read(['/bcbl/home/public/Gari/MINI/ANALYSIS/freesurferacpc' ...
                    fsp 'fsaverage' fsp 'mri' fsp 'transforms' fsp 'talairach.xfm']);
 T1305 = MRIread(['/bcbl/home/public/Gari/MINI/ANALYSIS/freesurferacpc' ...
                    fsp 'fsaverage' fsp 'mri' fsp 'T1.mgz']);
-lhwhite305 = read_surf(['/bcbl/home/public/Gari/MINI/ANALYSIS/freesurferacpc' ...
-                      '/fsaverage/surf/lh.white']);
-lhpial305 = read_surf(['/bcbl/home/public/Gari/MINI/ANALYSIS/freesurferacpc' ...
-                      '/fsaverage/surf/lh.pial']);
-lhinflated305 = read_surf(['/bcbl/home/public/Gari/MINI/ANALYSIS/freesurferacpc' ...
-                      '/fsaverage/surf/lh.inflated']);
+rhwhite305 = read_surf(['/bcbl/home/public/Gari/MINI/ANALYSIS/freesurferacpc' ...
+                      '/fsaverage/surf/rh.white']);
+rhpial305 = read_surf(['/bcbl/home/public/Gari/MINI/ANALYSIS/freesurferacpc' ...
+                      '/fsaverage/surf/rh.pial']);
+rhinflated305 = read_surf(['/bcbl/home/public/Gari/MINI/ANALYSIS/freesurferacpc' ...
+                      '/fsaverage/surf/rh.inflated']);
 Norig305 = T1305.vox2ras;
 Torig305 = T1305.tkrvox2ras;
 MNI305to152 =     [  0.9975   -0.0073    0.0176   -0.0429
@@ -80,14 +80,16 @@ yMinSurf305 = T1305.tkrvox2ras * inv(T1305.vox2ras) * yMin305;
 GLMs =       {'block'};  %, ...
               % 'event'};
 glmAnDirs =  {'analysis_block_acpc_rhITfusLatOcc'};
-% glmAnDirs =  {'analysis_block_acpc_lhPPC', ...
-%               'analysis_event_acpc_lhPPC'} 
-% glmAnDirs =  {'analysis_block_acpc_lhIFG', ...
-%   'analysis_event_acpc_lhIFG'} 
-% glmAnDirs =  {'analysis_block_acpc_lhPPC', ...
-%   'analysis_event_acpc_lhPPC'} 
-%conNums   =  {34, ...
-%              33}
+% glmAnDirs =  {'analysis_block_acpc_rhPPC', ...
+%               'analysis_event_acpc_rhPPC'} 
+% glmAnDirs =  {'analysis_block_acpc_rhIFG', ...
+%   'analysis_event_acpc_rhIFG'} 
+% glmAnDirs =  {'analysis_block_acpc_rhPPC', ...
+%   'analysis_event_acpc_rhPPC'} 
+
+% What is this
+conNums   =  {34, ... % So block has 34 contrastsm and event 33
+              33}
 Tmin = 0;  % Esto es igual a 0.001, 2.04 = 0.02, 1.6 = 0.05
 % ultimo VOT = Vr01
 % ultimo IFG = Vr01
@@ -130,13 +132,37 @@ anArea = 'VOT' % PPC, IFG
 dilateLabelBy = {'16'};
 % OJO CON LA CHAPUZA EN LA LINEA 182, ESTO LE AFECTA
 if strcmp(anArea, 'PPC')
-    VWFAletter = { 'lhNotVot_vof', 'lhNotVot_parc','lhPPC'};
+    VWFAletter = { 'rhNotVot_vof', 'rhNotVot_parc','rhPPC'};
 elseif strcmp(anArea, 'IFG')
-    VWFAletter = { 'lhNotVot_vof', 'lhNotVot_parc','lhIFG'};
+    VWFAletter = { 'rhNotVot_vof', 'rhNotVot_parc','rhIFG'};
 else
-    VWFAletter = { 'vof', 'parc','lhVOT'};
+    % VWFAletter = { 'vof', 'parc','rhVOT'};
+    VWFAletter = {'rhVOT'};
 end
-% lhVotNoV1V2yMin16.label  % En vez de usar GM y GMyMin usaremos este label
+% rhVotNoV1V2yMin16.label  % En vez de usar GM y GMyMin usaremos este label
+
+
+% Main ROI creation. 
+% The main problem here was that I could not find the code to generate the
+% left VOT noV1V2 roi, and I could not generate it back for the right.
+% The code is in 
+which  myObtainMNI152roiInfo.m -all
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
                 
@@ -181,13 +207,13 @@ for noglm=1:length(GLMs)
             % [aparcVert,aparcLabel,aparcClrtble] = read_annotation([fsdir ...
             %                    fsp subname ...
             %                    fsp 'label' ...
-            %                    fsp 'lh.aparc.annot']);
-            % V1thLabel = read_label(subname, 'lh.V1.thresh');
+            %                    fsp 'rh.aparc.annot']);
+            % V1thLabel = read_label(subname, 'rh.V1.thresh');
             % highres = MRIread([fMRIdir fsp glm fsp 'data' fsp subname ...
             %                    fsp 'anat' ...
             %                    fsp 'highres.nii']);
-            lhwhite = read_surf([fsdir fsp subname fsp 'surf' fsp 'lh.white']);
-            % lhpial = read_surf([fsdir fsp subname fsp 'surf' fsp 'lh.pial']);                           
+            rhwhite = read_surf([fsdir fsp subname fsp 'surf' fsp 'rh.white']);
+            % rhpial = read_surf([fsdir fsp subname fsp 'surf' fsp 'rh.pial']);                           
             % spmT = MRIread([basedir fsp subname fsp 'results' ...
             %                    fsp 'spmT_' conNum4str '.img']);
             spmTsurf = MRIread([basedir fsp subname fsp 'results' ...
@@ -228,8 +254,8 @@ for noglm=1:length(GLMs)
                     maximas{ns}.([prefijo 'fsy'])      = NaN;
                     maximas{ns}.([prefijo 'fsz'])      = NaN;
                     maximas{ns}.([prefijo 'T'])      = NaN;
-                    maximas{ns}.([prefijo 'inParc'])      = NaN;
-                    maximas{ns}.([prefijo 'inVof'])      = NaN;
+                    % maximas{ns}.([prefijo 'inParc'])      = NaN;
+                    % maximas{ns}.([prefijo 'inVof'])      = NaN;
                 end
             end
             
@@ -239,8 +265,8 @@ for noglm=1:length(GLMs)
 %             [spmTsurf_Max,spmTsurf_ind] = max(spmTsurf.vol(:));
 %             [spmTsurf_Max305,spmTsurf_ind305] = max(spmTsurf305.vol(:));
 %             if spmTsurf_Max >= 0.1 &&  spmTsurf_Max305 >= 0.1
-%                 % Obtener la coordenada en la surface de lh.white:
-%                 GM_spmTsurf_Surf = lhwhite(spmTsurf_ind, :);
+%                 % Obtener la coordenada en la surface de rh.white:
+%                 GM_spmTsurf_Surf = rhwhite(spmTsurf_ind, :);
 %                 GMmghSurf        = T1.vox2ras*inv(T1.tkrvox2ras)*[GM_spmTsurf_Surf';1];
 %                 % Al espacio MNI152
 %                 GM_SPM305 = TalXFM      * GMmghSurf;
@@ -258,15 +284,15 @@ for noglm=1:length(GLMs)
             %% GM con yMin
             % Primero hacemos copia y luego thresholdeamos
 %             yMinspmTsurf = spmTsurf;
-%             yMinspmTsurf.vol(lhwhite(:,2)  > yMinSurf(2)) = 0; 
+%             yMinspmTsurf.vol(rhwhite(:,2)  > yMinSurf(2)) = 0; 
 %             yMinspmTsurf305 = spmTsurf305;
-%             yMinspmTsurf305.vol(lhwhite305(:,2)  > yMin305(2)) = 0; 
+%             yMinspmTsurf305.vol(rhwhite305(:,2)  > yMin305(2)) = 0; 
 %             % Obtain max and vertex
 %             [yMinspmTsurf_Max, yMinspmTsurf_ind] = max(yMinspmTsurf.vol(:));
 %             [yMinspmTsurf_Max305, yMinspmTsurf_ind305] = max(yMinspmTsurf305.vol(:));
 %             if yMinspmTsurf_Max >= 0.1 && yMinspmTsurf_Max305 >= 0.1
-%                 % Obtener la coordenada en la surface de lh.white:
-%                 yMinGM_spmTsurf_Surf = lhwhite(yMinspmTsurf_ind, :);
+%                 % Obtener la coordenada en la surface de rh.white:
+%                 yMinGM_spmTsurf_Surf = rhwhite(yMinspmTsurf_ind, :);
 %                 yMinGMmghSurf = T1.vox2ras*inv(T1.tkrvox2ras)*[yMinGM_spmTsurf_Surf';1];
 %                 % En espacio MNI152
 %                 yMinGM_SPM305 = TalXFM      * yMinGMmghSurf;
@@ -286,10 +312,10 @@ for noglm=1:length(GLMs)
                 for kk=1:length(dilateLabelBy)
                     % Read the ROI
                     % roiname = [VWFAletter{jj} 'VWFA' dilateLabelBy{kk}];
-                    if strcmp([VWFAletter{jj} dilateLabelBy{kk}], 'lhVOT16')
-                        roiname = 'lhVotNoV1V2yMin16';
+                    if strcmp([VWFAletter{jj} dilateLabelBy{kk}], 'rhVOT16')
+                        roiname = 'rhVotNoV1V2yMin16';
                     else
-                        roiname = [VWFAletter{jj} dilateLabelBy{kk}];
+                        roiname = ['rh' VWFAletter{jj} dilateLabelBy{kk}];
                     end
                     setenv('SUBJECTS_DIR', fsdir);
                     ROI    = read_label(subname, roiname);
@@ -298,6 +324,8 @@ for noglm=1:length(GLMs)
                     % partir de las manchas de DTI (vof o pArc) son
                     % diferentes para cada sujeto en el espacio de cada
                     % sujeto y en fsaverage
+                    
+                    % I used to create these ROIs AFQ_MINI.m
                     if nnz(ismember([1,2], jj))
                         ROI305 = read_label(subname, [roiname '_305']);
                     else
@@ -315,27 +343,27 @@ for noglm=1:length(GLMs)
                     % como NA, incluso en fsaverage, no siempre concuerda a
                     % la perfeccion, los dos tienen que ser no ceros
                     if tmpSurf_Max >= 0.1 && tmpSurf_Max305 >= 0.1
-                        % Obtener la coordenada en la surface de lh.white:
-                        tmpSurf_Surf = lhwhite(tmpSurf_ind, :);
+                        % Obtener la coordenada en la surface de rh.white:
+                        tmpSurf_Surf = rhwhite(tmpSurf_ind, :);
                         RAS = T1.vox2ras*inv(T1.tkrvox2ras)*[tmpSurf_Surf';1];
                         % En espacio MNI152
-                        RAS305 = TalXFM       * RAS;
+                        RAS305 = TalXFM       * RVotNoV1V2yMinAS;
                         RAS152  = MNI305to152 * RAS305;  
                         % Lo mismo partiendo de 305 (SurfaceRAS y RAS es =
                         % en fsaverage)
-                        fsRAS305 = lhwhite305(tmpSurf_ind305, :);
+                        fsRAS305 = rhwhite305(tmpSurf_ind305, :);
                         fsRAS152  = MNI305to152 * [fsRAS305,1]'; 
                         % Vemos si la vtx305 esta dentro de vof y/o parc
-                        parc = read_label(subname, 'parc16_305');
-                        vof  = read_label(subname, 'vof16_305');
-                        vofFlag = 0;
-                        parcFlag = 0;
-                        if (nnz(vof(:,1) == (tmpSurf_ind305 - 1))) > 0
-                            vofFlag = 1;
-                        end
-                        if (nnz(parc(:,1) == (tmpSurf_ind305 - 1)))  > 0
-                            parcFlag = 1;
-                        end
+%                         parc = read_label(subname, 'parc16_305');
+%                         vof  = read_label(subname, 'vof16_305');
+%                         vofFlag = 0;
+%                         parcFlag = 0;
+%                         if (nnz(vof(:,1) == (tmpSurf_ind305 - 1))) > 0
+%                             vofFlag = 1;
+%                         end
+%                         if (nnz(parc(:,1) == (tmpSurf_ind305 - 1)))  > 0
+%                             parcFlag = 1;
+%                         end
                         % Write results
                         prefijo = [VWFAletter{jj} dilateLabelBy{kk} '_'];
                         maximas{ns}.([prefijo 'vtx'])    = tmpSurf_ind - 1;
@@ -347,8 +375,8 @@ for noglm=1:length(GLMs)
                         maximas{ns}.([prefijo 'fsy'])      = fsRAS152(2);
                         maximas{ns}.([prefijo 'fsz'])      = fsRAS152(3);
                         maximas{ns}.([prefijo 'T'])      = tmpSurf_Max;
-                        maximas{ns}.([prefijo 'inParc'])      = parcFlag;
-                        maximas{ns}.([prefijo 'inVof'])      = vofFlag;
+                        % maximas{ns}.([prefijo 'inParc'])      = parcFlag;
+                        % maximas{ns}.([prefijo 'inVof'])      = vofFlag;
                     end
                 end
             end            
@@ -363,7 +391,7 @@ for noglm=1:length(GLMs)
         % For every contrast write an excel with data of all subjects
         struct2csv(...
                 cell2mat(maximas), ...
-                char([basedir fsp glm 'Individual_acpc_' anArea '_con-' ...
+                char([basedir fsp 'rh_' glm 'Individual_acpc_' anArea '_con-' ...
                  conNum4str '_Tmin' num2str(Tmin) ...
                  '_yMin-40_' versionNum '.csv'])); 
         
@@ -384,7 +412,7 @@ end
 % subname = 'S006'
 % [status, results] = system(['freeview -viewport 3d ' ...
 %         '-f ' fsdir fsp subname fsp 'surf' fsp ...
-%         'lh.inflated:annot=aparc.annot' ...
+%         'rh.inflated:annot=aparc.annot' ...
 %         ':label=' fsdir fsp subname fsp 'label' fsp 'aVWFA16.label' ...
 %         ':label=' fsdir fsp subname fsp 'label' fsp 'cVWFA16.label' ...
 %         ':label=' fsdir fsp subname fsp 'label' fsp 'pVWFA16.label &' ...

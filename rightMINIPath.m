@@ -1,4 +1,4 @@
-function rootPath = MINIPath()
+function rootPath = rightMINIPath()
 % Determine path to root of the mrVista directory
 %
 %        rootPath = vistaRootPath;
@@ -8,7 +8,7 @@ function rootPath = MINIPath()
 %
 % Copyright Stanford team, mrVista, 2018
 
-rootPath = which('MINIPath');
+rootPath = which('rightMINIPath');
 
 rootPath = fileparts(rootPath);
 

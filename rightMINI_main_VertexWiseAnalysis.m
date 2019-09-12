@@ -4,7 +4,7 @@
 % paper results.
 % TODO1 = Use tables instead of structs... 
 
-clear all; close all; 
+tbUse paper-rightMINI;
 fsp = filesep;
 
 
@@ -23,11 +23,12 @@ addpath(genpath('~/soft/export_fig'))
 % This was very very bad, I lost all myLabels when I upgraded the laptop, because I did
 % not backup the Applications folder, because I thought no data was there. 
 % In the server there is no this problem, only locally. 
-labeldir      = fullfile(MINIPath, 'DATA', 'fslabeldir');
+labeldir      = fullfile(MINIdir, 'DATA', 'fslabeldir');
 labeldiraparc = fullfile(labeldir,'aparcLabels');
 
 
 % Options
+% Select to read
 smmm = '5';
 sm = '.fhmw5'; % '.fhmw5': Read smoothed data, '' read non smoothed data
 SHOW = 0;  %  1: Verbose, 0: Quiet
@@ -60,7 +61,7 @@ subs = dir('S*');
 delFields  = {'date', 'bytes', 'isdir', 'datenum'};
 subs = rmfield(subs, delFields);
 % Read a reference mgh to be used afterwards
-tempmgh = MRIread([DATAdir fsp 'CT' fsp 'S001' fsp 'surf' fsp 'lh.thickness.fsaverage.mgh']);
+tempmgh = MRIread([DATAdir fsp 'CT' fsp 'S001' fsp 'surf' fsp 'rh.thickness.fsaverage.mgh']);
 tempmgh.vol = zeros(size(tempmgh.vol));
 
 % Initialize structure with NaNs, and fill with data if it exists
@@ -68,13 +69,13 @@ subs = myInitStructures(subs, tempmgh, fMRIareas, designs, Contrasts);
 
 % SUPPORT DATA CREATION (just once, then leave it commented)
 % Smoothear surface data 
-% mySmoothStructures(subs, smmm, DATAdir, SHOW)
+mySmoothStructures(subs, smmm, DATAdir, SHOW,'rh')
 % Create labels with info coming from R analyses
 % myCreateLabelsfsaverage('TEST')
 % myCreateLabelsfsaverage('RETEST')
 
 % Read MRI data coming from the server analyses
-subs = myReadStructures(subs, DATAdir, sm, tempmgh, SHOW);
+subs = myReadStructures(subs, DATAdir, sm, tempmgh, SHOW,'rh');
 % Read the behavioural data
 LD = csv2struct([DATAdir fsp 'BEHAV' fsp 'LD' fsp 'LD.csv']); 
 % Read the labels created in this project, fs305 space, analysis specific

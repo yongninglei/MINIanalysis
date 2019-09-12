@@ -38,3 +38,5 @@ rsconnect/
 # Matlab temp
 *.m~
 
+# VIM temp
+*swap

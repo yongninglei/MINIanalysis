@@ -769,18 +769,18 @@ for GLM in GLMs:
                        '--srcsubject ' + sub + ' ' +
                        '--projfrac 0.5 ' +
                        '--interp trilinear ' +
-                       '--hemi lh ' +
+                       '--hemi rh ' +
                        '--regheader ' + sub + ' ' +
                        '--mov ' + join(subDir, 'results', 'spmT_' + conNum + '.img') + ' ' +
                        '--o ' + join(subDir, 'results', createContrast[GLM][conNum][0] +'.mgh ')
                        )
             cmd3 = str('mri_surf2surf ' +
                        '--srcsubject ' + sub + ' ' +
-                       '--srchemi lh ' +
+                       '--srchemi rh ' +
                        '--srcsurfreg sphere.reg ' +
                        '--sval ' + join(subDir, 'results', createContrast[GLM][conNum][0] +'.mgh') + ' ' +
                        '--trgsubject fsaverage ' +
-                       '--trghemi lh ' +
+                       '--trghemi rh ' +
                        '--trgsurfreg sphere.reg ' +
                        '--tval ' + join(subDir, 'results', createContrast[GLM][conNum][0] + '305.mgh') + ' ' +
                        '--sfmt ' +
@@ -822,7 +822,7 @@ for sub in doSubs:
                   '--srcsubject ' + sub + ' ' +
                   '--projfrac 0.5 ' +
                   '--interp trilinear ' +
-                  '--hemi lh ' +
+                  '--hemi rh ' +
                   '--regheader ' + sub + ' ' +
                   '--mov ' + join(subDir, 'results', spmT) + ' ' +
                   '--o ' + join(subDir, 'results', Translate[GLM][num] +'.mgh')
@@ -859,11 +859,11 @@ for sub in doSubs:
     for num in sorted(Translate[GLM]):
         cmd = str('mri_surf2surf ' +
                   '--srcsubject ' + sub + ' ' +
-                  '--srchemi lh ' +
+                  '--srchemi rh ' +
                   '--srcsurfreg sphere.reg ' +
                   '--sval ' + join(subDir, 'results', Translate[GLM][num] +'.mgh') + ' ' +
                   '--trgsubject fsaverage ' +
-                  '--trghemi lh ' +
+                  '--trghemi rh ' +
                   '--trgsurfreg sphere.reg ' +
                   '--tval ' + join(subDir, 'results', Translate[GLM][num] + '305.mgh') + ' ' +
                   '--sfmt ' +

@@ -35,32 +35,74 @@ fsdir = [ANALYSISdir fsp 'freesurferacpc']
 
 
 % READ FSAVERAGE FILES
-TalXFM305 = xfm_read(['/bcbl/home/public/Gari/MINI/ANALYSIS/freesurferacpc' ...
-                   fsp 'fsaverage' fsp 'mri' fsp 'transforms' fsp 'talairach.xfm']);
-T1305 = MRIread(['/bcbl/home/public/Gari/MINI/ANALYSIS/freesurferacpc' ...
-                   fsp 'fsaverage' fsp 'mri' fsp 'T1.mgz']);
-rhwhite305 = read_surf(['/bcbl/home/public/Gari/MINI/ANALYSIS/freesurferacpc' ...
-                      '/fsaverage/surf/rh.white']);
-rhpial305 = read_surf(['/bcbl/home/public/Gari/MINI/ANALYSIS/freesurferacpc' ...
-                      '/fsaverage/surf/rh.pial']);
-rhinflated305 = read_surf(['/bcbl/home/public/Gari/MINI/ANALYSIS/freesurferacpc' ...
-                      '/fsaverage/surf/rh.inflated']);
-Norig305 = T1305.vox2ras;
-Torig305 = T1305.tkrvox2ras;
-MNI305to152 =     [  0.9975   -0.0073    0.0176   -0.0429
-                     0.0146    1.0009   -0.0024    1.5496
-                    -0.0130   -0.0093    0.9971    1.1840];
-MNI305to152sq =   [  0.9975   -0.0073    0.0176   -0.0429
-                     0.0146    1.0009   -0.0024    1.5496
-                    -0.0130   -0.0093    0.9971    1.1840
-                    0             0         0         1  ];
-                
+TalXFM305     = xfm_read([fsdir  fsp 'fsaverage' fsp 'mri'  fsp 'transforms' fsp 'talairach.xfm']);
+T1305         = MRIread([fsdir   fsp 'fsaverage' fsp 'mri'  fsp 'T1.mgz']);
+rhwhite305    = read_surf([fsdir fsp 'fsaverage' fsp 'surf' fsp 'rh.white']);      
+rhpial305     = read_surf([fsdir fsp 'fsaverage' fsp 'surf' fsp 'rh.pial']);      
+rhinflated305 = read_surf([fsdir fsp 'fsaverage' fsp 'surf' fsp 'rh.inflated']);
+Norig305      = T1305.vox2ras;
+Torig305      = T1305.tkrvox2ras;
+MNI305to152   =     [  0.9975   -0.0073    0.0176   -0.0429
+                       0.0146    1.0009   -0.0024    1.5496
+                      -0.0130   -0.0093    0.9971    1.1840];
+MNI305to152sq =     [  0.9975   -0.0073    0.0176   -0.0429
+                       0.0146    1.0009   -0.0024    1.5496
+                      -0.0130   -0.0093    0.9971    1.1840
+                       0             0         0         1  ];% Read 305 structures
+[vtx305,labels305,ct305] = read_annotation([fsdir fsp 'fsaverage' fsp 'label' fsp 'rh.aparc.annot']);
+fusiform         = 7+1;
+lateraloccipital = 11+1;
+inferiortemporal = 9+1;
+
+codFusi          = ct305.table(fusiform        , 5);
+codLatOcc        = ct305.table(lateraloccipital, 5);
+codIT            = ct305.table(inferiortemporal, 5);
+
+myROIind         = ismember(labels305, [codFusi, codLatOcc, codIT]');
+
+% Incluir IT Lat Occ FF
+myROIlabels305   = labels305 .* myROIind;
+myROIannotName   = [fsdir fsp 'fsaverage' fsp 'label' fsp 'rh.ITfusiLatOcc.annot'];
+write_annotation(myROIannotName, vtx305, myROIlabels305, ct305);
+vtxITfusiLatOcc_305 = vtx305(myROIind);                      
 
 
-% Ademas buscar la y minima para que no se vayan tan anteriores
-yMin152  = [-30; -40; -20; 1];
-yMin305  = inv(MNI305to152sq) * yMin152;
-yMinSurf305 = T1305.tkrvox2ras * inv(T1305.vox2ras) * yMin305;
+
+% LABEL CREATION in fsaverage, DONE ONCE
+%{
+% INCLUIR IT Lat Occ FF NO INCLUIR V1 y V2, y poner ya lo de yMin = -40
+% y hacer el resto de analisis aqui tb
+yMin152          = [30; -30; -20; 1];
+yMin305          = inv(MNI305to152sq) * yMin152;
+yMinSurf305      = T1305.tkrvox2ras * inv(T1305.vox2ras) * yMin305;
+yMin305rhwhite   = yMinSurf305(2,1);
+
+vtxITfusiLatOcc_305 = vtx305(myROIind);
+V1label             = read_label('fsaverage', 'rh.V1');  % Esta sin thresholdear
+V1labelVtx          = V1label(:,1);
+V2label             = read_label('fsaverage', 'rh.V2');  % Esta sin thresholdear
+V2labelVtx          = V2label(:,1);
+
+guardarV1 = ismember(vtxITfusiLatOcc_305, V1label);
+guardarV2 = ismember(vtxITfusiLatOcc_305, V2label);
+guardar   = guardarV1 | guardarV2;
+quitar    = ~guardar;
+vtxITfusiLatOcc_305noV1V2 = vtxITfusiLatOcc_305(quitar);
+% Ahora thresholdearlo: 
+rxzy305       = rhwhite305(vtxITfusiLatOcc_305noV1V2+1,:);
+rhzy_yMin_ind = find(rxzy305(:,2) < yMin305rhwhite);
+rxzy305yMin   = rxzy305(rhzy_yMin_ind,:);
+vtxITfusiLatOcc_305noV1V2yMin = vtxITfusiLatOcc_305noV1V2(rhzy_yMin_ind);
+ok = write_label(vtxITfusiLatOcc_305noV1V2yMin, ...
+                 rxzy305yMin, ...
+                 zeros(size(vtxITfusiLatOcc_305noV1V2yMin)), ...
+                 [fsdir fsp 'fsaverage' fsp 'label' fsp 'rh.ITfusiLatOccNoV1V2yMin.label']);   
+% OJO: Tuve que cambiarle el nombre para que funcionara mejor el otro script  
+% Por si acaso mantener los dos nombres...
+lbdir = [fsdir fsp 'fsaverage' fsp 'label'];
+[status, result] = system(['cp ' lbdir fsp 'rh.ITfusiLatOccNoV1V2yMin.label ' ...
+                            lbdir fsp 'rhVotNoV1V2yMin16.label']);
+%}
 
 
 %%%%%   CLUSTER PARPOOL    %%%%%%
@@ -142,29 +184,70 @@ end
 % rhVotNoV1V2yMin16.label  % En vez de usar GM y GMyMin usaremos este label
 
 
-% Main ROI creation. 
-% The main problem here was that I could not find the code to generate the
-% left VOT noV1V2 roi, and I could not generate it back for the right.
-% The code is in 
-which  myObtainMNI152roiInfo.m -all
 
 
 
+%%%%%%%%%%%%%%%%%%%%%
+% This is done once, label creation for the main ROI, it was in another script
+%%%%%%%%%%%%%%%%%%%%%%
+%{
+    % Main ROI creation. 
+    % The main problem here was that I could not find the code to generate the
+    % left VOT noV1V2 roi, and I could not generate it back for the right.
+    % The code is in myObtainMNI152roiInfo.m
 
+    
+    cd(fsdir)
+    % gifs = dir('S*.gif');
+    % for ng=1:length(gifs),movefile(gifs(ng).name, ['g' gifs(ng).name]),end
+    subs = dir('S*');
+    for ns=1:length(subs)
+        subname = subs(ns).name;
+        TalXFM  = xfm_read([fsdir fsp subname fsp 'mri' fsp 'transforms' fsp 'talairach.xfm']);
+        rhwhite = read_surf([fsdir fsp subname fsp 'surf' fsp 'rh.white']);
+        T1      = MRIread([fsdir fsp subname fsp 'mri' fsp 'T1.mgz']);
+        [vtx, labels, ct] = read_annotation([fsdir fsp subname fsp 'label' fsp 'rh.aparc.annot']);
+        myROIind       = ismember(labels, [codFusi, codLatOcc, codIT]');
+        myROIlabels    = labels .* myROIind;
+        myROIannotName = [fsdir fsp subname fsp 'label' fsp 'rh.ITfusiLatOcc.annot'];
+        write_annotation(myROIannotName, vtx, myROIlabels, ct);
+        vtxITfusiLatOcc = vtx(myROIind); 
+        
+        yMin            = inv(TalXFM) * yMin305; 
+        yMinSurf        = T1.tkrvox2ras * inv(T1.vox2ras) * yMin;
+        yMinSurfrhwhite = yMinSurf(2,1);
+        
+        V1label    = read_label(subname, 'rh.V1');  % Esta sin thresholdear
+        V1labelVtx = V1label(:,1);
+        V2label    = read_label(subname, 'rh.V2');  % Esta sin thresholdear
+        V2labelVtx = V2label(:,1);
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+        guardarV1 = ismember(vtxITfusiLatOcc, V1label);
+        guardarV2 = ismember(vtxITfusiLatOcc, V2label);
+        guardar   = guardarV1 | guardarV2;
+        quitar    = ~guardar;
+        vtxITfusiLatOcc_noV1V2 = vtxITfusiLatOcc(quitar);
+        % Ahora thresholdearlo: 
+        rxzy          = rhwhite(vtxITfusiLatOcc_noV1V2+1,:);
+        rhzy_yMin_ind = find(rxzy(:,2) < yMinSurfrhwhite);
+        rxzyyMin      = rxzy(rhzy_yMin_ind,:);
+        vtxITfusiLatOcc_noV1V2yMin = vtxITfusiLatOcc_noV1V2(rhzy_yMin_ind);
+        % Escribir el label para usarlo luego
+        ok = write_label(vtxITfusiLatOcc_noV1V2yMin, ...
+                         rxzyyMin, ...
+                         zeros(size(vtxITfusiLatOcc_noV1V2yMin)), ...
+                         [fsdir fsp subname fsp 'label' fsp 'rh.ITfusiLatOccNoV1V2yMin.label']);
+        % OJO: Tuve que cambiarle el nombre para que funcionara mejor el otro script  
+        % Por si acaso mantener los dos nombres...
+        lbdir = [fsdir fsp subname fsp 'label'];
+        [status, result] = system(['cp ' lbdir fsp 'rh.ITfusiLatOccNoV1V2yMin.label ' ...
+            lbdir fsp 'rhVotNoV1V2yMin16.label']);
+    end
+%}
+yMin152          = [30; -30; -20; 1];
+yMin305          = inv(MNI305to152sq) * yMin152;
+yMinSurf305      = T1305.tkrvox2ras * inv(T1305.vox2ras) * yMin305;
+yMin305rhwhite   = yMinSurf305(2,1);
                 
 for noglm=1:length(GLMs)
     %%%%%%%%%%%%%%%%%
@@ -203,7 +286,7 @@ for noglm=1:length(GLMs)
             % Read data: 
             TalXFM = xfm_read([fsdir fsp subname fsp 'mri' fsp 'transforms' ...
                                fsp 'talairach.xfm']);
-            T1 = MRIread([fsdir fsp subname fsp 'mri' fsp 'T1.mgz']);
+            T1     = MRIread([fsdir fsp subname fsp 'mri' fsp 'T1.mgz']);
             % [aparcVert,aparcLabel,aparcClrtble] = read_annotation([fsdir ...
             %                    fsp subname ...
             %                    fsp 'label' ...
@@ -212,36 +295,19 @@ for noglm=1:length(GLMs)
             % highres = MRIread([fMRIdir fsp glm fsp 'data' fsp subname ...
             %                    fsp 'anat' ...
             %                    fsp 'highres.nii']);
-            rhwhite = read_surf([fsdir fsp subname fsp 'surf' fsp 'rh.white']);
+            rhwhite     = read_surf([fsdir fsp subname fsp 'surf' fsp 'rh.white']);
             % rhpial = read_surf([fsdir fsp subname fsp 'surf' fsp 'rh.pial']);                           
             % spmT = MRIread([basedir fsp subname fsp 'results' ...
             %                    fsp 'spmT_' conNum4str '.img']);
-            spmTsurf = MRIread([basedir fsp subname fsp 'results' ...
+            spmTsurf    = MRIread([basedir fsp subname fsp 'results' ...
                                fsp conName '.mgh']);
             spmTsurf305 = MRIread([basedir fsp subname fsp 'results' ...
                                 fsp conName '305.mgh']);            
             % Buscar la yMin
-            yMin  = inv(TalXFM) * yMin305; 
-            yMinSurf = T1.tkrvox2ras * inv(T1.vox2ras) * yMin;
+            yMin        = inv(TalXFM) * yMin305; 
+            yMinSurf    = T1.tkrvox2ras * inv(T1.vox2ras) * yMin;
             
-            % Vamos a guardar solo el vertex, la T y la coord 152
-            % INITIALIZE
-%             prefijo = 'GM_';
-%             maximas{ns}.([prefijo 'vtx'])    = NaN;
-%             maximas{ns}.([prefijo 'vtx305']) = NaN;
-%             maximas{ns}.([prefijo 'x'])      = NaN;
-%             maximas{ns}.([prefijo 'y'])      = NaN;
-%             maximas{ns}.([prefijo 'z'])      = NaN;
-%             maximas{ns}.([prefijo 'T'])      = NaN;
-%             
-%             prefijo = 'GMyMin_';
-%             maximas{ns}.([prefijo 'vtx'])    = NaN;
-%             maximas{ns}.([prefijo 'vtx305']) = NaN;
-%             maximas{ns}.([prefijo 'x'])      = NaN;
-%             maximas{ns}.([prefijo 'y'])      = NaN;
-%             maximas{ns}.([prefijo 'z'])      = NaN;
-%             maximas{ns}.([prefijo 'T'])      = NaN;
-            
+            % Initialize results
             for jj = 1:length(VWFAletter) 
                 for kk=1:length(dilateLabelBy)
                     prefijo = [VWFAletter{jj} dilateLabelBy{kk} '_']
@@ -250,9 +316,9 @@ for noglm=1:length(GLMs)
                     maximas{ns}.([prefijo 'x'])      = NaN;
                     maximas{ns}.([prefijo 'y'])      = NaN;
                     maximas{ns}.([prefijo 'z'])      = NaN;
-                    maximas{ns}.([prefijo 'fsx'])      = NaN;
-                    maximas{ns}.([prefijo 'fsy'])      = NaN;
-                    maximas{ns}.([prefijo 'fsz'])      = NaN;
+                    maximas{ns}.([prefijo 'fsx'])    = NaN;
+                    maximas{ns}.([prefijo 'fsy'])    = NaN;
+                    maximas{ns}.([prefijo 'fsz'])    = NaN;
                     maximas{ns}.([prefijo 'T'])      = NaN;
                     % maximas{ns}.([prefijo 'inParc'])      = NaN;
                     % maximas{ns}.([prefijo 'inVof'])      = NaN;
@@ -307,7 +373,7 @@ for noglm=1:length(GLMs)
 %                 maximas{ns}.([prefijo 'T'])      = yMinspmTsurf_Max; 
 %             end
             
-            %% LM-s dentro de los ROIs
+            %% LM-s dentro de los ROIs (local maximas)
             for jj = 1:length(VWFAletter) 
                 for kk=1:length(dilateLabelBy)
                     % Read the ROI
@@ -326,11 +392,15 @@ for noglm=1:length(GLMs)
                     % sujeto y en fsaverage
                     
                     % I used to create these ROIs AFQ_MINI.m
-                    if nnz(ismember([1,2], jj))
-                        ROI305 = read_label(subname, [roiname '_305']);
-                    else
+                    
+                    
+                    
+                    
+                    % if nnz(ismember([1,2], jj))
+                    %     ROI305 = read_label(subname, [roiname '_305']);
+                    % else
                         ROI305 = read_label('fsaverage', roiname);
-                    end
+                    % end
                     % Copia y thresholdeo
                     tmpSurf = spmTsurf.vol;
                     tmpSurf(   1, setdiff(1:size(tmpSurf,   2), [(ROI(   :,1)+1)'])) = 0; % index es base 1 en matlab pero leo vertex en base 0 
@@ -347,7 +417,7 @@ for noglm=1:length(GLMs)
                         tmpSurf_Surf = rhwhite(tmpSurf_ind, :);
                         RAS = T1.vox2ras*inv(T1.tkrvox2ras)*[tmpSurf_Surf';1];
                         % En espacio MNI152
-                        RAS305 = TalXFM       * RVotNoV1V2yMinAS;
+                        RAS305 = TalXFM       * RAS;
                         RAS152  = MNI305to152 * RAS305;  
                         % Lo mismo partiendo de 305 (SurfaceRAS y RAS es =
                         % en fsaverage)
@@ -371,9 +441,9 @@ for noglm=1:length(GLMs)
                         maximas{ns}.([prefijo 'x'])      = RAS152(1);
                         maximas{ns}.([prefijo 'y'])      = RAS152(2);
                         maximas{ns}.([prefijo 'z'])      = RAS152(3);
-                        maximas{ns}.([prefijo 'fsx'])      = fsRAS152(1);
-                        maximas{ns}.([prefijo 'fsy'])      = fsRAS152(2);
-                        maximas{ns}.([prefijo 'fsz'])      = fsRAS152(3);
+                        maximas{ns}.([prefijo 'fsx'])    = fsRAS152(1);
+                        maximas{ns}.([prefijo 'fsy'])    = fsRAS152(2);
+                        maximas{ns}.([prefijo 'fsz'])    = fsRAS152(3);
                         maximas{ns}.([prefijo 'T'])      = tmpSurf_Max;
                         % maximas{ns}.([prefijo 'inParc'])      = parcFlag;
                         % maximas{ns}.([prefijo 'inVof'])      = vofFlag;
@@ -390,10 +460,12 @@ for noglm=1:length(GLMs)
         
         % For every contrast write an excel with data of all subjects
         struct2csv(...
-                cell2mat(maximas), ...
-                char([basedir fsp 'rh_' glm 'Individual_acpc_' anArea '_con-' ...
-                 conNum4str '_Tmin' num2str(Tmin) ...
-                 '_yMin-40_' versionNum '.csv'])); 
+                   cell2mat(maximas), ...
+                   char([basedir fsp 'rh_' glm 'Individual_acpc_' anArea '_con-' ...
+                   conNum4str '_Tmin' num2str(Tmin) ...
+                   '_yMin-30_' versionNum '.csv']) ...
+                  ); 
+        
         
         
         % Pintar los ROIs

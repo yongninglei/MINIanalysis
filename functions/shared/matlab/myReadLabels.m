@@ -3,8 +3,11 @@ function kkvertex = myReadLabels(labeldir)
 fsp = filesep;
 
 % For the probabilistic fMRI analysis
-adjLOTS = myFSread_label('fsaverage',[labeldir fsp 'lh.adjLOTS2.label'], 1);
+adjLOTS = myFSread_label('fsaverage',[labeldir fsp 'lh.aLOTS.label'], 1);
 kkvertex.adjLOTS = adjLOTS(:,1) + 1;
+
+VOT= myFSread_label('fsaverage',[labeldir fsp 'lh.ITfusiLatOccNoV1V2yMin.label'], 1); 
+kkvertex.VOT = VOT(:,1) + 1;
 
 % Rosenke Cytoarchitectonic maps
 rosenkelabels = dir([labeldir fsp 'Rosenke_vcAtlas_FS' fsp '*.label']);

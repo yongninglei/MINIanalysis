@@ -110,8 +110,8 @@ for ns = 1: length(subs)
                     %filename = [DATAdir fsp hemi '_fMRI_VOT' fsp design fsp sub ...
                     %                   fsp 'results' fsp cont '305' sm '.mgh'];
                     % change this only for tiger's testing using 
-                    filename = ['/bcbl/home/public/Gari/MINI/ANALYSIS/fMRI_SPM/block/analysis_block_acpc_lhITfusLatOcc/SUBJECTS'...
-                                fsp sub fsp 'results' fsp cont '305' '.mgh'];
+                    filename = ['/bcbl/home/public/Gari/MINI/ANALYSIS/fMRI_SPM/block/analysis_block_acpc_lhITfusLatOcc/smoothed_fhmw5'...
+                                fsp sub fsp 'results' fsp cont '305' sm '.mgh'];
                 else 
                     filename = [DATAdir fsp 'fMRI_VOT' fsp design fsp sub ...
                                        fsp 'results' fsp cont '305' sm '.mgh'];
@@ -159,18 +159,18 @@ for ns = 1: length(subs)
 %                     disp([sub ' ' fname ': file doesnt exist'])
 %                 end
 % 
-%             case{'qMRI_MTV', 'qMRI_T1qMRI'}
-%                 qM = fname(6:end);
-%                 if SHOW, disp(['qMRI: reading ' qM '... ']);end;
-%                 filename = [DATAdir fsp 'qMRI' fsp sub fsp ...
-%                             'OutPutFiles_1' fsp 'BrainMaps' fsp qM '_305' sm '.mgh'];
-%                 if exist(filename,'file')
-%                     temp = MRIread(filename);
-%                     subs(ns).(fname) = temp.vol';
-%                     if SHOW disp(' ...done');end;
-%                 else
-%                     disp([sub ' ' fname ': file doesnt exist'])
-%                 end
+            case{'qMRI_MTV', 'qMRI_T1qMRI'}
+                qM = fname(6:end);
+                if SHOW, disp(['qMRI: reading ' qM '... ']);end;
+                filename = ['/bcbl/home/public/Gari/MINI/DATA/icloud_data' fsp 'qMRI' fsp sub fsp ...
+                            'OutPutFiles_1' fsp 'BrainMaps' fsp 'lh.' qM '_305' sm '.mgh'];
+                if exist(filename,'file')
+                    temp = MRIread(filename);
+                    subs(ns).(fname) = temp.vol';
+                    if SHOW disp(' ...done');end;
+                else
+                    disp([sub ' ' fname ': file doesnt exist'])
+                end
 %                 
 %             case{'qMRI_MTV_WM', 'qMRI_T1qMRI_WM'}
 %                 qM = fname(6:end);

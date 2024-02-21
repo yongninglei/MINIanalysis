@@ -1,4 +1,4 @@
-function myBehavfMRIRegression(trt, subs, subject_index, LD, kkvertex, tempmgh)
+function myxMRIfMRIRegression(trt, subs, subject_index, LD, kkvertex, tempmgh)
 
     % trt = 'TEST'
     % subs = TESTsubs
@@ -9,20 +9,14 @@ function myBehavfMRIRegression(trt, subs, subject_index, LD, kkvertex, tempmgh)
     % subject_index = DAY2ind
 
 
+% this is for qMRI_T1qMRI
+ldnames = {'qMRI_T1qMRI'};
+
 % Vertexwise glmfit for PER and LEX averaged signals
 % labeldir      = fullfile(MINIPath, 'DATA', 'fslabeldir');
 labeldir      = '/bcbl/home/public/Gari/MINI/ANALYSIS/freesurferacpc/fsaverage/label';
-
-% subject 29 and subject 92 have no Lexical decision value! kick them out
-% and re run the glmfit
-trt= 'TESTgroup';
-keep= true(size(TESTind));
-keep([4,13,18,29,32,48,56,62])=false;
-
-subject_index= TESTind(keep)
-
+subs = TESTsubs;
 MINIPath= '/bcbl/home/public/Gari/MINI';
-ldnames = {'CSzRT','WHzRT'};
 contrastes   = {'RWvsCB','RWvsPS','RWvsSD','RWvsCS','RWvsFF','RWvsPW','RWvsNull'};
 designs = {'block'};
 fMRIareas = {'VOT'};
@@ -30,7 +24,7 @@ orig_state = warning('off','all');
 
 % fshome = '/Applications/freesurfer';
 fssubdir = '/bcbl/home/public/Gari/MINI/ANALYSIS/freesurferacpc';
-% 
+
 % setenv('FREESURFER_HOME', fshome);
 setenv('SUBJECTS_DIR', fssubdir);
 
@@ -41,6 +35,7 @@ tipocon = {'PERCEPTUAL','SEMANTIC'};  % 'PERCEPTUAL','SEMANTIC','RWvsNull'
 % Create the intermediate data
 for area = fMRIareas; for design = designs; for contr=1:length(contrastes)
     todos    = [subs.([ area{:} '_' design{:} '_' contrastes{contr}])]';
+    % this step is using the lable to mask out the part we don't want
     todos    = todos(:, kkvertex.(area{:}));
     brain{contr}    = repmat(tempmgh.vol, [size(todos,1),1]);
     brain{contr}(:, kkvertex.(area{:})) = todos;
@@ -64,31 +59,35 @@ for area = fMRIareas; for design = designs; for contr=1:length(contrastes)
     % if contr == 7; persembrain{1} = brain{7}; end;        
 end;end;end;
 
+%% qMRI intermediate data preparasion
+% the aim is to mask it with VOT lable, and get a cell with 1 58*163842 double
+
+for qmri_measurement = ldnames
+    qm    = [subs.([qmri_measurement{:}])]';
+    qm    = qm(:, kkvertex.('VOT'));
+    vot_masked_qmri    = repmat(tempmgh.vol, [size(qm,1),1]);
+    vot_masked_qmri(:, kkvertex.('VOT')) = qm;
+end;
 
 
-
-% Now that we have the averages, do the glmfit at the vertex level
-thp = '13';  % '13', '20'
-thpcomma = '1.3';  % '1.3', '2.0'
-cwpvalthresh = '0.05';  % '0.05', '0.01'
+% gml qmri
+thp = '20';  % '13', '20'
+thpcomma = '2.0';  % '1.3', '2.0'
+cwpvalthresh = '0.01';  % '0.05', '0.01'
 sig = 'abs';  % 'pos', 'abs', 'neg'
-ver = 'v_58sub-votmasked';
-% Hacer el calculo glm
+ver = 'v_58sub-smooth-of-both-correctsub-index';
 for ldns = 1:length(ldnames)
     behavname = ldnames{ldns};
-    y = LD.(behavname);
-    y = y(subject_index);
-    ResultFldr = fullfile(MINIPath, 'ANALYSIS', 'LD_fMRI', ['glmfit_' ver '_VOT_block_zSum_vertexclusterCor' thp '_' behavname]);
+    y= vot_masked_qmri;
+    ResultFldr = fullfile(MINIPath, 'ANALYSIS', 'qMRI_fMRI', ['glmfit_' ver '_VOT_block_zSum_vertexclusterCor' thp '_' behavname]);
     if ~exist([ResultFldr]);mkdir([ResultFldr]),end
     % psb means, it is the 3 condition all together
     for psb = 1:size(persembrain,2)
         tipoclust = tipocon{psb};
         Fp     = zeros(size(tempmgh.vol));
         for kk = kkvertex.(area{:})'  % Matlab = kk, FREEVIEW = kk-1
-            allsub_vertex_tval= persembrain{psb}(:,kk)
-            specified_group_vertex_tval= allsub_vertex_tval(subject_index)
-            temp1 = fitlm([specified_group_vertex_tval], ... %,x3(:,kk)], ...
-                          y, ...
+            temp1 = fitlm([persembrain{psb}(:,kk)], ... %,x3(:,kk)], ...
+                          [y(:,kk)], ...
                           'linear'); %, ... % 'linear', 'interactions'
             p_signOfRelationship = 1;
             if temp1.Coefficients.Estimate(2) > 0 
@@ -101,8 +100,8 @@ for ldns = 1:length(ldnames)
        logP.vol = Fp;
        inFile = [trt '_' behavname  '_' tipoclust];
        MRIwrite(logP, [ResultFldr fsp inFile '.mgh']);
-end;end
-        
+end;end;
+
 % Montecarlo (do it once and store it for later use)
 %   First create the simulation inside our ROI. 
 % It was run in the server and then copied locally, created with the following
@@ -119,7 +118,7 @@ for ldns = 1:length(ldnames)
     for psb = 1:size(persembrain,2)
         tipoclust = tipocon{psb};
         inFile = [trt '_' behavname  '_' tipoclust];
-        ResultFldr = fullfile(MINIPath, 'ANALYSIS', 'LD_fMRI', ['glmfit_' ver '_VOT_block_zSum_vertexclusterCor' thp '_' behavname]);
+        ResultFldr = fullfile(MINIPath, 'ANALYSIS', 'qMRI_fMRI', ['glmfit_' ver '_VOT_block_zSum_vertexclusterCor' thp '_' behavname]);
         cd(ResultFldr); if ~exist(inFile); mkdir(inFile); end
  %[fsbin fsp
         cmdsc = ['mri_surfcluster ' ...
@@ -149,7 +148,7 @@ for ldns = 1:length(ldnames)
     for psb = 1:size(persembrain,2)
         tipoclust = tipocon{psb};
         inFile = [trt '_' behavname  '_' tipoclust];
-        ResultFldr = fullfile(MINIPath, 'ANALYSIS', 'LD_fMRI', ['glmfit_' ver '_VOT_block_zSum_vertexclusterCor' thp '_' behavname]);
+        ResultFldr = fullfile(MINIPath, 'ANALYSIS', 'qMRI_fMRI', ['glmfit_' ver '_VOT_block_zSum_vertexclusterCor' thp '_' behavname]);
         cd(ResultFldr); cd(inFile); 
         cmdsc = ['mri_annotation2label ' ...
                     '--subject fsaverage ' ...

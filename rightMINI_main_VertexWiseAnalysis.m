@@ -4,7 +4,8 @@
 % paper results.
 % TODO1 = Use tables instead of structs... 
 
-tbUse paper-rightMINI;
+%tbUse paper-rightMINI;
+tbUse MINIanalysis
 fsp = filesep;
 
 
@@ -67,7 +68,7 @@ Contrasts       = ContrastConNull;
 %% Initialize structures and read them 
 % Read all subjects in the folder and delete the non interesting fields of the
 % struct
-cd('/bcbl/home/public/Gari/MINI/ANALYSIS/fMRI_SPM/block/analysis_block_acpc_lhITfusLatOcc/SUBJECTS');
+cd('/bcbl/home/public/Gari/MINI/ANALYSIS/fMRI_SPM/block/analysis_block_acpc_lhITfusLatOcc/smoothed_fhmw5');
 subs = dir('S*');
 delFields  = {'date', 'bytes', 'isdir', 'datenum'};
 subs = rmfield(subs, delFields);
@@ -129,13 +130,25 @@ kkvertex = myReadLabels(DATAdir, labeldir, ANALYSISdir);
 % right now didn't touch the QA of qMRI and DWI so I tick out the
 % participants
 
-trt= 'TESTgroup';
+trt= 'TEST';
+
+subjectsToRemove={'S004', 'S013', 'S018', 'S029', 'S032', 'S048', 'S056', 'S067' };
+
+names= {subs.name};
+removeInd= ismember({subs.name}, subjectsToRemove);
+%subjectFiltered=subs(~removeInd);
+
+
+subject_index_to_remove= find(removeInd);
+
 keep= true(size(TESTind));
-keep([4,13,18,29,32,48,56,62])=false;
-
-subject_index= TESTind(keep)
+keep(subject_index_to_remove)=false;
+subject_index= TESTind(keep);
 TESTsubs = subs(subject_index);
+%% qMRI and fMRI regression analysis
 
+
+%%
 % add a new function, just to store the thing into a mat so that when
 % matlab crashed, I can still run?  or I can run it in python
 %% Create probabilistic fMRI maps inside ROIs for LEX and PER contrasts

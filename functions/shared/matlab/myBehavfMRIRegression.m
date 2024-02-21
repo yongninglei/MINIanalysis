@@ -8,6 +8,10 @@ function myBehavfMRIRegression(trt, subs, subject_index, LD, kkvertex, tempmgh)
     % subs = DAY2subs
     % subject_index = DAY2ind
 
+% this is for LDT behaviroal
+% ldnames = {'CSzRT','WHzRT'};
+% this is for qMRI_T1qMRI
+ldnames = {'qMRI_T1qMRI'};
 
 % Vertexwise glmfit for PER and LEX averaged signals
 % labeldir      = fullfile(MINIPath, 'DATA', 'fslabeldir');
@@ -18,7 +22,7 @@ subs = TESTsubs
 
 
 MINIPath= '/bcbl/home/public/Gari/MINI';
-ldnames = {'CSzRT','WHzRT'};
+
 contrastes   = {'RWvsCB','RWvsPS','RWvsSD','RWvsCS','RWvsFF','RWvsPW','RWvsNull'};
 designs = {'block'};
 fMRIareas = {'VOT'};
@@ -61,6 +65,15 @@ for area = fMRIareas; for design = designs; for contr=1:length(contrastes)
     % if contr == 7; persembrain{1} = brain{7}; end;        
 end;end;end;
 
+%% qMRI intermediate data preparasion
+% the aim is to mask it with VOT lable, and get a cell with 1 58*163842 double
+
+for qmri_measurement = ldnames
+    qm    = [subs.([qmri_measurement{:}])]';
+    qm    = qm(:, kkvertex.('VOT'));
+    vot_masked_qmri    = repmat(tempmgh.vol, [size(qm,1),1]);
+    vot_masked_qmri(:, kkvertex.('VOT')) = qm;
+end;
 
 
 
@@ -69,7 +82,7 @@ thp = '13';  % '13', '20'
 thpcomma = '1.3';  % '1.3', '2.0'
 cwpvalthresh = '0.05';  % '0.05', '0.01'
 sig = 'abs';  % 'pos', 'abs', 'neg'
-ver = 'v_58sub-nosmooth';
+ver = 'v_58sub-smooth-of-both-correctsub-index';
 % Hacer el calculo glm
 for ldns = 1:length(ldnames)
     behavname = ldnames{ldns};
@@ -97,7 +110,39 @@ for ldns = 1:length(ldnames)
        inFile = [trt '_' behavname  '_' tipoclust];
        MRIwrite(logP, [ResultFldr fsp inFile '.mgh']);
 end;end
-        
+
+% gml qmri
+thp = '13';  % '13', '20'
+thpcomma = '1.3';  % '1.3', '2.0'
+cwpvalthresh = '0.05';  % '0.05', '0.01'
+sig = 'abs';  % 'pos', 'abs', 'neg'
+ver = 'v_58sub-smooth-of-both-correctsub-index';
+for ldns = 1:length(ldnames)
+    behavname = ldnames{ldns};
+    y= vot_masked_qmri;
+    ResultFldr = fullfile(MINIPath, 'ANALYSIS', 'qMRI_fMRI', ['glmfit_' ver '_VOT_block_zSum_vertexclusterCor' thp '_' behavname]);
+    if ~exist([ResultFldr]);mkdir([ResultFldr]),end
+    % psb means, it is the 3 condition all together
+    for psb = 1:size(persembrain,2)
+        tipoclust = tipocon{psb};
+        Fp     = zeros(size(tempmgh.vol));
+        for kk = kkvertex.(area{:})'  % Matlab = kk, FREEVIEW = kk-1
+            temp1 = fitlm([persembrain{psb}(:,kk)], ... %,x3(:,kk)], ...
+                          [y(:,kk)], ...
+                          'linear'); %, ... % 'linear', 'interactions'
+            p_signOfRelationship = 1;
+            if temp1.Coefficients.Estimate(2) > 0 
+                p_signOfRelationship = -1;
+            end
+            Fp(kk) = p_signOfRelationship * log10(temp1.coefTest);
+        end
+       % Write mgh 
+       logP = tempmgh;
+       logP.vol = Fp;
+       inFile = [trt '_' behavname  '_' tipoclust];
+       MRIwrite(logP, [ResultFldr fsp inFile '.mgh']);
+end;end;
+
 % Montecarlo (do it once and store it for later use)
 %   First create the simulation inside our ROI. 
 % It was run in the server and then copied locally, created with the following
@@ -119,7 +164,7 @@ for ldns = 1:length(ldnames)
  %[fsbin fsp
         cmdsc = ['mri_surfcluster ' ...
              '--in ' inFile '.mgh ' ...
-             '--csd ' fullfile('/bcbl/home/public/Gari/MINI/ANALYSIS/freesurferacpc/average/mult-comp-cor/fsaverage/lh/ITfusiLatOccNoV1V2yMin','fwhm01',sig,['th' thp],'mc-z.csd ') ...
+             '--csd ' fullfile('/bcbl/home/public/Gari/MINI/ANALYSIS/freesurferacpc/average/mult-comp-cor/fsaverage/lh/ITfusiLatOccNoV1V2yMin','fwhm05',sig,['th' thp],'mc-z.csd ') ...
              '--mask ' fullfile('/bcbl/home/public/Gari/MINI/ANALYSIS/freesurferacpc/average/mult-comp-cor/fsaverage/lh/ITfusiLatOccNoV1V2yMin', 'mask.mgh ') ...
              '--cwsig ' inFile fsp 'cache.th' thp '.' sig '.sig.cluster.mgh ' ...
              '--vwsig ' inFile fsp 'cache.th' thp '.' sig '.sig.voxel.mgh ' ...

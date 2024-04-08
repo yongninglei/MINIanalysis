@@ -12,30 +12,31 @@ for ns = 1: length(subs)
     for ii = 2:length(fnames)
         fname = fnames{ii};
         switch fname
-%             case {'CT'}
-%                 if SHOW disp('CT: reading the data... '); end;
-%                 filename = [DATAdir fsp fname fsp sub fsp 'surf' fsp ...
-%                                 hemi '.thickness.fsaverage' sm '.mgh'];
-%                 if exist(filename)
-%                     temp = MRIread(filename);
-%                     subs(ns).(fname) = temp.vol';
-%                     if SHOW disp(' ...done');end;
-%                 else
-%                     disp([sub ' ' fname ': file doesnt exist'])
-%                 end
-%                 
-%             case{'CURV'}
-%                 if SHOW disp('CURV: reading data... ');end;
-%                 filename  = [DATAdir fsp fname fsp sub fsp 'surf' fsp ...
-%                                 hemi '.curv.fsaverage' sm '.mgh'];
-%                 if exist(filename)
-%                     temp = MRIread(filename);
-%                     subs(ns).(fname) = temp.vol';
-%                     if SHOW disp(' ...done');end;
-%                 else
-%                     disp([sub ' ' fname ': file doesnt exist'])
-%                 end
-% 
+            case {'CT'}
+                if SHOW disp('CT: reading the data... '); end;
+                %% there is a typo in sm, sm is fhwm5, but in fsfoler, it fwhm5
+                filename = [DATAdir fsp 'freesurferacpc' fsp sub fsp 'surf' fsp ...
+                                hemi '.thickness.fwhm5.fsaverage.mgh'];
+                if exist(filename)
+                    temp = MRIread(filename);
+                    subs(ns).(fname) = temp.vol';
+                    if SHOW disp(' ...done');end;
+                else
+                    disp([sub ' ' fname ': file doesnt exist'])
+                end
+                
+            case{'CURV'}
+                if SHOW disp('CURV: reading data... ');end;
+                filename  = [DATAdir fsp 'freesurferacpc' fsp sub fsp 'surf' fsp ...
+                                hemi '.curv.fwhm5.fsaverage.mgh'];
+                if exist(filename)
+                    temp = MRIread(filename);
+                    subs(ns).(fname) = temp.vol';
+                    if SHOW disp(' ...done');end;
+                else
+                    disp([sub ' ' fname ': file doesnt exist'])
+                end
+
 %             case{'DWI_vOF', 'DWI_pARC'}
 %                 if SHOW disp(['DWI: reading ' tract '... ']); end;
 %                 tract = upper(fname(5:end));

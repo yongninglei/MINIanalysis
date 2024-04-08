@@ -1,4 +1,4 @@
-function myBehavfMRIRegression(trt, subs, subject_index, LD, kkvertex, tempmgh)
+function myMRIGlmfit(trt, subs, subject_index, LD, kkvertex, tempmgh)
 
     % trt = 'TEST'
     % subs = TESTsubs

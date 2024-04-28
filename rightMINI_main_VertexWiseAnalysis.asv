@@ -123,6 +123,21 @@ kkvertex = myReadLabels(DATAdir, labeldir, ANALYSISdir);
 % end
 % ONCEsubs = subs(ONCEind);
 % DAY1subs = subs(DAY1ind);
+% # Write down why this subjects have to be removed from the analysis
+# S013: due to results in artifact repair, see MINIDB spreadsheet in googleDocs
+# S018: due to results in artifact repair, see MINIDB spreadsheet in googleDocs
+# S004: qMRI missing, the pipeline did not end, usually registration problems
+# S029: qMRI missing, the pipeline did not end, usually registration problems
+# S032: qMRI missing, the pipeline did not end, usually registration problems
+# S048: qMRI missing, the pipeline did not end, usually registration problems
+# S056: qMRI missing, the pipeline did not end, usually registration problems
+# S067: qMRI missing as well. DWI wrong as well. Too much movement....
+# S072: qMRI missing, the pipeline did not end, usually registration problems
+# S086: qMRI missing, the pipeline did not end, usually registration problems
+# S029: puntuacion demasiado baja en lexical decision, ya estaba eliminado
+# S067: lexical decision sin sentido, no era nativa
+# S097: el RETEST de lexical decision
+glmNames = c('block')
 % TESTsubs = subs(TESTind);
 % DAY2subs = subs(DAY2ind);
 % ALLsubs  = subs;
@@ -315,4 +330,11 @@ mySavefsavgSurfaceValues('TEST', TESTsubs, TH)
 mySavefsavgSurfaceValues('RETEST', DAY2subs, TH)
 %%
 [m,i]=max(max([VOTmaskedsubs.('VOT_block_RWvsPS')]))
-s31=VOTmaskedsubs
+s31=VOTmaskedsubs(27).VOT_block_RWvsPS
+
+logP = tempmgh;
+logP.vol = [s31];
+inFile = ['S031_RWvsPS'];
+
+Resultdir='/bcbl/home/public/Gari/MINI/ANALYSIS/fs_glmfit/per-lex';
+MRIwrite(logP, [Resultdir fsp inFile '.mgh']);

@@ -123,6 +123,11 @@ kkvertex = myReadLabels(DATAdir, labeldir, ANALYSISdir);
 % end
 % ONCEsubs = subs(ONCEind);
 % DAY1subs = subs(DAY1ind);
+% # Write down why this subjects have to be removed from the analysis
+% # S072: qMRI missing, the pipeline did not end, usually registration problems
+% # S086: qMRI missing, the pipeline did not end, usually registration problems
+% # S097: el RETEST de lexical decision
+% # S075:  no event related data
 % TESTsubs = subs(TESTind);
 % DAY2subs = subs(DAY2ind);
 % ALLsubs  = subs;

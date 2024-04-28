@@ -1,4 +1,4 @@
-function maskedsubs = maskSurf(TESTsubs,label,tempmgh)
+function maskedsubs = maskFsaverageSurf(TESTsubs,label,tempmgh)
 % 
 % This function is used to using a label to mask the surface
 % 

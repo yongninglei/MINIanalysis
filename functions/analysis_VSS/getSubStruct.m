@@ -1,5 +1,7 @@
 function [filtered_sub_struct, subject_index] = getSubStruct(subject_to_remove,subs,TESTind)
-%REMOVESTRUCTSUB Summary of this function goes here
+%This funciton is used to  get a subset of subejuects according to two
+%things: the index of subjects that you want to have and the names of
+%subjects you want to disgard
 %   Detailed explanation goes here
 
 % first get all the subjects in the subs struct
